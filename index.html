@@ -3,81 +3,102 @@
 
 <head>
     <meta charset="utf-8">
-    <title>Load data from an external GeoJSON file</title>
+    <title>Index</title>
     <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.5.0/mapbox-gl.css" rel="stylesheet">
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.5.0/mapbox-gl.js"></script>
     <style>
-        body {
-            margin: 0;
-            padding: 0;
-        }
-
-        #container {
-            display: flex;
-            height: 100vh;
-            flex-direction: row;
-            align-items: stretch;
-        }
-
-        #table {
-            flex-basis: 500px;
-            overflow-y: scroll;
-        }
-
+        html, body { margin: 0; padding: 0; height: 100%; position: relative; }
         #map {
-            flex-grow: 1;
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          width: 100%;
+          height: 100vh; /* ensure non-zero height */
         }
-
-        button {
-            margin-bottom: 10px;
+        /* Right hover panel */
+        #panel {
+          position: absolute;
+          top: 16px;
+          right: 16px;
+          width: 360px;
+          max-height: calc(100vh - 32px);
+          overflow-y: auto;
+          background: rgba(255, 255, 255, 0.92);
+          backdrop-filter: blur(4px);
+          border-radius: 8px;
+          box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+          padding: 12px 12px 8px;
+          z-index: 2; /* above map */
         }
+        /* Hide side panel on small screens */
+        @media (max-width: 1024px) {
+          #panel {
+            display: none;
+          }
+        }
+        #panel h2 {
+          margin: 0 0 8px;
+          font-size: 18px;
+          line-height: 1.2;
+        }
+        #panel .subtle { font-size: 12px; color: #666; margin: 0 0 8px; }
+        button { margin-bottom: 10px; }
+        #sortBtn { margin: 0; padding: 6px 10px; border-radius: 999px; border: 1px solid #ccc; background:#fff; cursor:pointer; }
         table {
-            border-collapse: collapse;
-            border-spacing: 0;
-            width: 100%;
-            border: 1px solid #ddd;
+          border-collapse: collapse;
+          border-spacing: 0;
+          width: 100%;
+          border: 1px solid #ddd;
+          background: #fff;
         }
+        th, td { text-align: left; padding: 10px; }
+        thead th { position: sticky; top: 0; background: #fafafa; }
+        tr:nth-child(even) { background-color: #f7f7f7; }
+        a.action { cursor: pointer; text-decoration: underline; color: #0a58ca; }
 
-        th,
-        td {
-            text-align: left;
-            padding: 16px;
-        }
-
-        tr:nth-child(even) {
-            background-color: #f2f2f2;
-        }
+        /* clickable, toggling sort headers */
+        th.sortable { cursor: pointer; user-select: none; }
+        th.sortable .arrow { margin-left: 6px; font-size: 10px; opacity: .6; }
     </style>
 </head>
 
 <body>
-    <main id="container">
-        <div id="table">
-
-            <h2>Earthquake List</h2>
-
-            <table>
-                <tr>
-                    <th>id</th>
-                    <th>magnitude</th>
-                    <th>timestamp</th>
-                </tr>
-            </table>
-
+    <div id="map"></div>
+    <aside id="panel">
+        <div id="panelHeader" style="display:flex;align-items:center;gap:8px;justify-content:space-between;margin-bottom:6px;">
+          <h2 style="margin:0;">Philippines Earthquakes</h2>
+          <button id="sortBtn" type="button" title="Toggle sort by magnitude">Sort by Magnitude (desc)</button>
         </div>
-        <div id="map"></div>
-
-    </main>
+        <p class="subtle">Click any column header to sort the table. The button toggles magnitude sort.</p>
+        <table>
+            <thead>
+                <tr>
+                    <th class="sortable" data-col="0">id <span class="arrow" data-arrow-for="0">↕</span></th>
+                    <th class="sortable" data-col="1">magnitude <span class="arrow" data-arrow-for="1">↕</span></th>
+                    <th class="sortable" data-col="2">timestamp <span class="arrow" data-arrow-for="2">↕</span></th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </aside>
     <script>
-        mapboxgl.accessToken =
-            'pk.eyJ1IjoiamFrb2J6aGFvIiwiYSI6ImNpcms2YWsyMzAwMmtmbG5icTFxZ3ZkdncifQ.P9MBej1xacybKcDN_jehvw';
+        mapboxgl.accessToken = 'pk.eyJ1IjoicnVpbWlyIiwiYSI6ImNtaGNzbDl0dTB1N2Uya29kOHlhOGtjZ2QifQ.gXFnHS11V3cqG3FrsqIlSA';
         const map = new mapboxgl.Map({
             container: 'map', // container ID
-            style: 'mapbox://styles/mapbox/satellite-v9', // style URL
+            style: 'mapbox://styles/mapbox/light-v10', // style URL
             zoom: 5.5, // starting zoom
             center: [122.885, 11.95] // starting center
         });
+        map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+        map.addControl(new mapboxgl.ScaleControl({ maxWidth: 100, unit: 'metric' }));
+        // keep the canvas sized correctly
+        window.addEventListener('resize', () => map.resize());
+
+        // surface style/tile errors to the console if something fails to load
+        map.on('error', (e) => { console.error('Map error:', e && e.error ? e.error : e); });
 
 
         async function geojsonFetch() {
@@ -116,6 +137,18 @@
                             'circle-stroke-color': 'white'
                         }
                     });
+                    map.on('click', 'earthquakes-layer', (e) => {
+                        const f = e.features[0];
+                        const id = f.id || f.properties?.code || 'N/A';
+                        const mag = f.properties?.mag ?? '';
+                        const time = f.properties?.time ? new Date(f.properties.time).toLocaleString('en-US') : '';
+                        new mapboxgl.Popup()
+                            .setLngLat(e.lngLat)
+                            .setHTML(`<strong>${id}</strong><br>Mag: ${mag}<br>${time}`)
+                            .addTo(map);
+                    });
+                    map.on('mouseenter', 'earthquakes-layer', () => map.getCanvas().style.cursor = 'pointer');
+                    map.on('mouseleave', 'earthquakes-layer', () => map.getCanvas().style.cursor = '');
                 }
 
                 if (!map.getSource('philippines')) {
@@ -131,62 +164,47 @@
                             'fill-opacity': 0.5
                         }
                     });
+                    if (!map.getLayer('philippines-outline')) {
+                        map.addLayer({
+                            'id': 'philippines-outline',
+                            'type': 'line',
+                            'source': 'philippines',
+                            'paint': { 'line-color': '#004a99', 'line-width': 1.5, 'line-opacity': 0.9 }
+                        });
+                    }
                 }
             }
 
 
-            var table = document.getElementsByTagName("table");
+            var table = document.querySelector('#panel table tbody');
             for (let i = 0; i < earthquakes.features.length; i++) {
                 const feature = earthquakes.features[i];
+                const row = document.createElement('tr');
+                const c1 = document.createElement('td');
+                const c2 = document.createElement('td');
+                const c3 = document.createElement('td');
 
-                // coordinates retained in case you need them later
-                var lng = feature.geometry.coordinates[0];
-                var lat = feature.geometry.coordinates[1];
+                const fid = feature.id || (feature.properties && (feature.properties.code || feature.properties.id)) || 'N/A';
 
-                // Create an empty <tr> element and add it to the 1st position of the table:
-                var row = table[0].insertRow(-1);
-
-                var cell1 = row.insertCell(0);
-                var cell2 = row.insertCell(1);
-                var cell3 = row.insertCell(2);
-
-                // USGS GeoJSON uses top-level feature.id for the quake id
-                const fid = (feature.id !== undefined && feature.id !== null && feature.id !== '')
-                  ? feature.id
-                  : (feature.properties && feature.properties.id) || '—';
-
-                cell1.innerHTML = fid;
-                cell2.innerHTML = feature.properties && feature.properties.mag !== undefined ? feature.properties.mag : '';
-                cell3.innerHTML = feature.properties && feature.properties.time
-                  ? new Date(feature.properties.time).toLocaleDateString("en-US")
+                c1.textContent = fid;
+                c2.textContent = (feature.properties && feature.properties.mag !== undefined) ? feature.properties.mag : '';
+                c3.textContent = (feature.properties && feature.properties.time)
+                  ? new Date(feature.properties.time).toLocaleDateString('en-US')
                   : '';
+
+                row.appendChild(c1); row.appendChild(c2); row.appendChild(c3);
+                table.appendChild(row);
             }
 
+            _enableSortingHeaders();
+            _wireSortButton();
 
-
-
-            map.on('load', () => {
+            if (map.loaded()) {
                 addAllLayers();
-            });
+            } else {
+                map.on('load', addAllLayers);
+            }
 
-            window.useSatellite = function () {
-                map.setStyle('mapbox://styles/mapbox/satellite-v9');
-                map.once('style.load', () => {
-                    addAllLayers();
-                    // keep same view for continuity
-                    map.setCenter([122.885, 11.95]);
-                    map.setZoom(5.5);
-                });
-            };
-
-            window.useLight = function () {
-                map.setStyle('mapbox://styles/mapbox/light-v10');
-                map.once('style.load', () => {
-                    addAllLayers();
-                    map.setCenter([122.885, 11.95]);
-                    map.setZoom(5.5);
-                });
-            };
 
 
 
@@ -199,40 +217,91 @@
             });
 
 
+        // track current sort state
+        let _sortState = { col: 1, dir: 'desc' }; // default: magnitude, descending
 
-        function sortTable() {
-            var table, rows, switching, i, x, y, shouldSwitch;
-            table = document.getElementsByTagName("table")[0];
-            switching = true;
-            /*Make a loop that will continue until
-            no switching has been done:*/
-            while (switching) {
-                //start by saying: no switching is done:
-                switching = false;
-                rows = table.rows;
-                /*Loop through all table rows (except the
-                first, which contains table headers):*/
-                for (i = 1; i < (rows.length - 1); i++) {
-                    //start by saying there should be no switching:
-                    shouldSwitch = false;
-                    /*Get the two elements you want to compare,
-                    one from current row and one from the next:*/
-                    x = parseFloat(rows[i].getElementsByTagName("td")[1].innerHTML);
-                    y = parseFloat(rows[i + 1].getElementsByTagName("td")[1].innerHTML);
-                    //check if the two rows should switch place:
-                    if (x < y) {
-                        //if so, mark as a switch and break the loop:
-                        shouldSwitch = true;
-                        break;
-                    }
-                }
-                if (shouldSwitch) {
-                    /*If a switch has been marked, make the switch
-                    and mark that a switch has been done:*/
-                    rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
-                    switching = true;
-                }
-            }
+        function _getCellValue(row, col) {
+          const txt = row.children[col]?.textContent?.trim() ?? '';
+          // numeric for magnitude, otherwise string compare
+          if (col === 1) {
+            const num = parseFloat(txt);
+            return isNaN(num) ? -Infinity : num;
+          }
+          return txt.toLowerCase();
+        }
+
+        function _updateHeaderArrows(col, dir) {
+          document.querySelectorAll('#panel thead .arrow').forEach(span => {
+            span.textContent = '↕';
+            span.style.opacity = '.4';
+          });
+          const active = document.querySelector(`#panel thead .arrow[data-arrow-for="${col}"]`);
+          if (active) {
+            active.textContent = dir === 'asc' ? '↑' : '↓';
+            active.style.opacity = '1';
+          }
+        }
+
+        function sortTable(col = _sortState.col) {
+          const table = document.querySelector('#panel table');
+          if (!table) return;
+          const tbody = table.tBodies[0];
+          if (!tbody) return;
+
+          // toggle dir if same column, else reset to descending for magnitude (col 1) or ascending for others
+          let dir = _sortState.dir;
+          if (col === _sortState.col) {
+            dir = (dir === 'asc') ? 'desc' : 'asc';
+          } else {
+            dir = (col === 1) ? 'desc' : 'asc';
+          }
+          _sortState = { col, dir };
+
+          const rows = Array.from(tbody.rows);
+          rows.sort((a, b) => {
+            const va = _getCellValue(a, col);
+            const vb = _getCellValue(b, col);
+            if (va < vb) return dir === 'asc' ? -1 : 1;
+            if (va > vb) return dir === 'asc' ? 1 : -1;
+            return 0;
+          });
+
+          // re-attach rows in sorted order
+          rows.forEach(r => tbody.appendChild(r));
+
+          _updateHeaderArrows(col, dir);
+          _updateSortButton();
+        }
+
+        function _enableSortingHeaders() {
+          document.querySelectorAll('#panel thead th.sortable').forEach(th => {
+            th.addEventListener('click', () => {
+              const col = parseInt(th.getAttribute('data-col'), 10);
+              sortTable(col);
+            });
+          });
+          // show default state on load
+          _updateHeaderArrows(_sortState.col, _sortState.dir);
+        }
+
+        function _updateSortButton(){
+          const btn = document.getElementById('sortBtn');
+          if(!btn) return;
+          // Only reflect magnitude direction. If currently sorting a different column,
+          // show what would be applied next time (default desc for magnitude).
+          const isMag = _sortState.col === 1;
+          const labelDir = isMag ? _sortState.dir : 'desc';
+          btn.textContent = `Sort by Magnitude (${labelDir})`;
+        }
+
+        function _wireSortButton(){
+          const btn = document.getElementById('sortBtn');
+          if(!btn) return;
+          btn.addEventListener('click', ()=>{
+            // Always sort magnitude then update label (sortTable toggles dir automatically)
+            sortTable(1);
+          });
+          _updateSortButton();
         }
     </script>
 
