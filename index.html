@@ -78,7 +78,7 @@
             container: 'map', // container ID
             style: 'mapbox://styles/mapbox/satellite-v9', // style URL
             zoom: 5.5, // starting zoom
-            center: [138.043, 38] // starting center
+            center: [122.885, 11.95] // starting center
         });
 
 
@@ -94,21 +94,22 @@
             let earthquakes = await response.json();
 
 
-            response = await fetch('assets/japan.json');
+            response = await fetch('assets/philippines.json');
 
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
 
-            let japan = await response.json();
+            let philippines = await response.json();
 
 
             var table = document.getElementsByTagName("table");
             for (let i = 0; i < earthquakes.features.length; i++) {
-                // console.log(earthquakes.features[i].properties.id);
+                const feature = earthquakes.features[i];
 
-                var lng = await earthquakes.features[i].geometry.coordinates[0];
-                var lat = await earthquakes.features[i].geometry.coordinates[1];
+                // coordinates retained in case you need them later
+                var lng = feature.geometry.coordinates[0];
+                var lat = feature.geometry.coordinates[1];
 
                 // Create an empty <tr> element and add it to the 1st position of the table:
                 var row = table[0].insertRow(-1);
@@ -116,10 +117,17 @@
                 var cell1 = row.insertCell(0);
                 var cell2 = row.insertCell(1);
                 var cell3 = row.insertCell(2);
-                cell1.innerHTML = await earthquakes.features[i].properties.id;
-                cell2.innerHTML = await earthquakes.features[i].properties.mag;
-                cell3.innerHTML = await new Date(earthquakes.features[i].properties.time).toLocaleDateString("en-US");
 
+                // USGS GeoJSON uses top-level feature.id for the quake id
+                const fid = (feature.id !== undefined && feature.id !== null && feature.id !== '')
+                  ? feature.id
+                  : (feature.properties && feature.properties.id) || '—';
+
+                cell1.innerHTML = fid;
+                cell2.innerHTML = feature.properties && feature.properties.mag !== undefined ? feature.properties.mag : '';
+                cell3.innerHTML = feature.properties && feature.properties.time
+                  ? new Date(feature.properties.time).toLocaleDateString("en-US")
+                  : '';
             }
 
 
@@ -147,15 +155,15 @@
                 });
 
 
-                map.addSource('japan', {
+                map.addSource('philippines', {
                     type: 'geojson',
-                    data: japan
+                    data: philippines
                 });
 
                 map.addLayer({
-                    'id': 'japan-layer',
+                    'id': 'philippines-layer',
                     'type': 'fill',
-                    'source': 'japan',
+                    'source': 'philippines',
                     'paint': {
                         'fill-color': '#0080ff', // blue color fill
                         'fill-opacity': 0.5

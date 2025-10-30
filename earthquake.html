@@ -80,24 +80,24 @@
     <script>
         // Define the Mapbox access token
         mapboxgl.accessToken =
-            'pk.eyJ1Ijoiemhhb2JvIiwiYSI6ImNqaW85NzNrdDA3OXczcHQ5aTZvYmtjc2gifQ.ummEQxsRIweCIdv9CRRzOw';
+            'pk.eyJ1IjoicnVpbWlyIiwiYSI6ImNtaGNzbDl0dTB1N2Uya29kOHlhOGtjZ2QifQ.gXFnHS11V3cqG3FrsqIlSA';
 
         // Create the map object
         let map = new mapboxgl.Map({
             container: 'map', // container ID
             style: 'mapbox://styles/mapbox/satellite-v9', // style URL
             zoom: 5.5, // starting zoom
-            center: [138, 38] // starting center
+            center: [121.7740, 12.8797] // starting center
         });
 
 
         async function geojsonFetch() {
 
-            let response, earthquakes, japan, table;
+            let response, earthquakes, philippines, table;
             response = await fetch('assets/earthquakes.geojson');
             earthquakes = await response.json();
-            response = await fetch('assets/japan.json');
-            japan = await response.json();
+            response = await fetch('assets/philippines.json');
+            philippines = await response.json();
 
             table = document.getElementsByTagName("table")[0];
             let row, cell1, cell2, cell3;
@@ -107,7 +107,7 @@
                 cell1 = row.insertCell(0);
                 cell2 = row.insertCell(1);
                 cell3 = row.insertCell(2);
-                cell1.innerHTML = earthquakes.features[i].properties.id;
+                cell1.innerHTML = earthquakes.features[i].id || earthquakes.features[i].properties.code || "N/A";
                 cell2.innerHTML = earthquakes.features[i].properties.mag;
                 cell3.innerHTML = new Date(earthquakes.features[i].properties.time).toLocaleDateString(
                     "en-US");
@@ -135,15 +135,15 @@
                 });
 
 
-                map.addSource('japan', {
+                map.addSource('philippines', {
                     type: 'geojson',
-                    data: japan
+                    data: philippines
                 });
 
                 map.addLayer({
-                    'id': 'japan-layer',
+                    'id': 'philippines-layer',
                     'type': 'fill',
-                    'source': 'japan',
+                    'source': 'philippines',
                     'paint': {
                         'fill-color': '#0080ff', // blue color fill
                         'fill-opacity': 0.5
