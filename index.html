@@ -56,8 +56,6 @@
         <div id="table">
 
             <h2>Earthquake List</h2>
-            <button onclick="sortTable()">Sort by Magnitude</button>
-            
 
             <table>
                 <tr>
@@ -102,6 +100,40 @@
 
             let philippines = await response.json();
 
+            function addAllLayers() {
+                if (!map.getSource('earthquakes')) {
+                    map.addSource('earthquakes', { type: 'geojson', data: earthquakes });
+                }
+                if (!map.getLayer('earthquakes-layer')) {
+                    map.addLayer({
+                        'id': 'earthquakes-layer',
+                        'type': 'circle',
+                        'source': 'earthquakes',
+                        'paint': {
+                            'circle-radius': 8,
+                            'circle-stroke-width': 2,
+                            'circle-color': 'red',
+                            'circle-stroke-color': 'white'
+                        }
+                    });
+                }
+
+                if (!map.getSource('philippines')) {
+                    map.addSource('philippines', { type: 'geojson', data: philippines });
+                }
+                if (!map.getLayer('philippines-layer')) {
+                    map.addLayer({
+                        'id': 'philippines-layer',
+                        'type': 'fill',
+                        'source': 'philippines',
+                        'paint': {
+                            'fill-color': '#0080ff',
+                            'fill-opacity': 0.5
+                        }
+                    });
+                }
+            }
+
 
             var table = document.getElementsByTagName("table");
             for (let i = 0; i < earthquakes.features.length; i++) {
@@ -134,48 +166,27 @@
 
 
             map.on('load', () => {
-
-
-
-                map.addSource('earthquakes', {
-                    type: 'geojson',
-                    data: earthquakes
-                });
-
-                map.addLayer({
-                    'id': 'earthquakes-layer',
-                    'type': 'circle',
-                    'source': 'earthquakes',
-                    'paint': {
-                        'circle-radius': 8,
-                        'circle-stroke-width': 2,
-                        'circle-color': 'red',
-                        'circle-stroke-color': 'white'
-                    }
-                });
-
-
-                map.addSource('philippines', {
-                    type: 'geojson',
-                    data: philippines
-                });
-
-                map.addLayer({
-                    'id': 'philippines-layer',
-                    'type': 'fill',
-                    'source': 'philippines',
-                    'paint': {
-                        'fill-color': '#0080ff', // blue color fill
-                        'fill-opacity': 0.5
-                    }
-                });
-
-
-
-
-
-
+                addAllLayers();
             });
+
+            window.useSatellite = function () {
+                map.setStyle('mapbox://styles/mapbox/satellite-v9');
+                map.once('style.load', () => {
+                    addAllLayers();
+                    // keep same view for continuity
+                    map.setCenter([122.885, 11.95]);
+                    map.setZoom(5.5);
+                });
+            };
+
+            window.useLight = function () {
+                map.setStyle('mapbox://styles/mapbox/light-v10');
+                map.once('style.load', () => {
+                    addAllLayers();
+                    map.setCenter([122.885, 11.95]);
+                    map.setZoom(5.5);
+                });
+            };
 
 
 
