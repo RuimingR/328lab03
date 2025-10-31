@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="utf-8">
-    <title>Index</title>
+    <title>Philippines Earthquake</title>
     <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.5.0/mapbox-gl.css" rel="stylesheet">
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.5.0/mapbox-gl.js"></script>
@@ -94,17 +94,17 @@
         });
         map.addControl(new mapboxgl.NavigationControl(), 'top-right');
         map.addControl(new mapboxgl.ScaleControl({ maxWidth: 100, unit: 'metric' }));
-        // keep the canvas sized correctly
+        
         window.addEventListener('resize', () => map.resize());
 
-        // surface style/tile errors to the console if something fails to load
+        
         map.on('error', (e) => { console.error('Map error:', e && e.error ? e.error : e); });
 
 
         async function geojsonFetch() {
 
 
-            let response = await fetch('assets/earthquakes.geojson');
+            let response = await fetch('assets/earthquakes_Ph.geojson');
 
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
